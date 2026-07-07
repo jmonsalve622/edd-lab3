@@ -1,3 +1,5 @@
+// Complición: g++ unordered_map/unordered_map.cpp -o unordered_map/unordered_map
+// Ejecución: ./unordered_map/unordered_map
 
 #include <cstdint>
 #include <fstream>
@@ -32,7 +34,7 @@ std::vector<Tweet> leerDataset(const std::string& ruta) {
 }
 
 int main(int argc, char* argv[]) {
-    std::string ruta = (argc > 1) ? argv[1] : "../usuarios.csv";
+    std::string ruta = (argc > 1) ? argv[1] : "./usuarios.csv";
     std::vector<Tweet> tweets = leerDataset(ruta);
     std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
 

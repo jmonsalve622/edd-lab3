@@ -1,38 +1,91 @@
+// Compilación: g++ closed_hashing/linear_probing.cpp -o closed_hashing/linear_probing
+// Ejecución: ./closed_hashing/linear_probing [read_count] [num_experimento]
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <chrono>
+#include <cstdint>
 
 using namespace std;
 using namespace std::chrono;
 
-
 enum Estado { VACIO, OCUPADO, BORRADO };
 
-struct NodoHash {
+struct Tweet {
+    uint64_t user_id;
+    string screen_name;
+};
+
+struct NodoHashID {
+    uint64_t clave;
+    int conteo;
+    Estado estado;
+    NodoHashID() : clave(0), conteo(0), estado(VACIO) {}
+};
+
+class LinearProbingID {
+private:
+    vector<NodoHashID> tabla;
+    int capacidad;
+    int elementos;
+
+    size_t hash_id(uint64_t clave) {
+        return clave % capacidad;
+    }
+
+public:
+    LinearProbingID(int cap) {
+        capacidad = cap;
+        elementos = 0;
+        tabla.resize(capacidad);
+    }
+
+    void insertar(uint64_t clave) {
+        size_t indice = hash_id(clave);
+        size_t i = 0;
+
+        while (tabla[(indice + i) % capacidad].estado == OCUPADO) {
+            if (tabla[(indice + i) % capacidad].clave == clave) {
+                tabla[(indice + i) % capacidad].conteo++;
+                return;
+            }
+            i++;
+            if (i == capacidad) return;
+        }
+
+        size_t pos_final = (indice + i) % capacidad;
+        tabla[pos_final].clave = clave;
+        tabla[pos_final].conteo = 1;
+        tabla[pos_final].estado = OCUPADO;
+        elementos++;
+    }
+
+    int getElementosUnicos() const { return elementos; }
+
+    long long getSumaContadores() const {
+        long long suma = 0;
+        for (const auto& nodo : tabla) {
+            if (nodo.estado == OCUPADO) suma += nodo.conteo;
+        }
+        return suma;
+    }
+};
+
+struct NodoHashName {
     string clave;
     int conteo;
     Estado estado;
-
-    NodoHash() : clave(""), conteo(0), estado(VACIO) {}
+    NodoHashName() : clave(""), conteo(0), estado(VACIO) {}
 };
 
-class LinearProbing {
+class LinearProbingName {
 private:
-    vector<NodoHash> tabla;
+    vector<NodoHashName> tabla;
     int capacidad;
     int elementos;
-    bool usar_hash_id;
 
-    // Funcion para sacar user_id en resultados
-    size_t hash_id(const string& clave) {
-        unsigned long long id = stoull(clave);
-        return id % capacidad;
-    }
-
-    // Funcion para sacar user_name en resultados
     size_t hash_name(const string& clave) {
         size_t hash = 0;
         size_t p = 31;
@@ -44,23 +97,15 @@ private:
         return hash;
     }
 
-    // Funcion hash
-    size_t hash(const string& clave) {
-        if (usar_hash_id) return hash_id(clave);
-        return hash_name(clave);
-    }
-
 public:
-    LinearProbing(int cap, bool es_id) {
+    LinearProbingName(int cap) {
         capacidad = cap;
         elementos = 0;
-        usar_hash_id = es_id;
         tabla.resize(capacidad);
     }
 
-    // Insercion y conteo de los tweets
     void insertar(const string& clave) {
-        size_t indice = hash(clave);
+        size_t indice = hash_name(clave);
         size_t i = 0;
 
         while (tabla[(indice + i) % capacidad].estado == OCUPADO) {
@@ -68,13 +113,8 @@ public:
                 tabla[(indice + i) % capacidad].conteo++;
                 return;
             }
-
             i++;
-            
-            if (i == capacidad) {
-                cerr << "Error: La tabla Hash está llena." << endl;
-                return;
-            }
+            if (i == capacidad) return;
         }
 
         size_t pos_final = (indice + i) % capacidad;
@@ -83,55 +123,90 @@ public:
         tabla[pos_final].estado = OCUPADO;
         elementos++;
     }
+
+    int getElementosUnicos() const { return elementos; }
+
+    long long getSumaContadores() const {
+        long long suma = 0;
+        for (const auto& nodo : tabla) {
+            if (nodo.estado == OCUPADO) suma += nodo.conteo;
+        }
+        return suma;
+    }
+
+    string getUsuarioMasActivo(int& max_tweets) const {
+        string topUsuario = "";
+        max_tweets = 0;
+        for (const auto& nodo : tabla) {
+            if (nodo.estado == OCUPADO && nodo.conteo > max_tweets) {
+                max_tweets = nodo.conteo;
+                topUsuario = nodo.clave;
+            }
+        }
+        return topUsuario;
+    }
 };
 
+vector<Tweet> leerDataset(const string& ruta, int readCount) {
+    ifstream archivo(ruta);
+    if (!archivo) {
+        cerr << "Error: no se pudo abrir " << ruta << "\n";
+        exit(1);
+    }
+    vector<Tweet> tweets;
+    tweets.reserve(readCount);
+    string linea;
+    int count = 0;
+    while (getline(archivo, linea) && count < readCount) {
+        size_t sep = linea.find(';');
+        tweets.push_back({stoull(linea.substr(0, sep)), linea.substr(sep + 1)});
+        count++;
+    }
+    return tweets;
+}
 
-// Main principal de linear_probing.cpp
-int main() {
-    string archivo_csv = "../usuarios.csv";
-    ifstream archivo(archivo_csv);
+int main(int argc, char* argv[]) {
+    int readCount = (argc > 1) ? stoi(argv[1]) : 183361;
+    int numExperimento = (argc > 2) ? stoi(argv[2]) : 1;
 
-    if (!archivo.is_open()) {
-        cerr << "Error al abrir el archivo: " << archivo_csv << endl;
+    if (readCount < 1 || readCount > 183361) {
+        cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
         return 1;
     }
 
+    vector<Tweet> tweets = leerDataset("usuarios.csv", readCount);
+    
+    cout << "Tweets leidos: " << tweets.size() << "\n\n";
+
     int N = 400009; 
-    LinearProbing tabla_ids(N, true);
-    LinearProbing tabla_names(N, false);
+    
+    LinearProbingID tabla_ids(N);
+    auto start_id = high_resolution_clock::now();
+    for (const Tweet& t : tweets) tabla_ids.insertar(t.user_id);
+    auto end_id = high_resolution_clock::now();
+    double tiempo_ids_ms = duration_cast<duration<double, milli>>(end_id - start_id).count();
 
-    string linea, user_id, screen_name;
-    int num_tweets_procesados = 0;
+    LinearProbingName tabla_names(N);
+    auto start_name = high_resolution_clock::now();
+    for (const Tweet& t : tweets) tabla_names.insertar(t.screen_name);
+    auto end_name = high_resolution_clock::now();
+    double tiempo_names_ms = duration_cast<duration<double, milli>>(end_name - start_name).count();
 
-    double tiempo_ids_ms = 0.0;
-    double tiempo_names_ms = 0.0;
+    cout << "Usuarios unicos (por user_id)     : " << tabla_ids.getElementosUnicos() << "\n";
+    cout << "Usuarios unicos (por screen_name) : " << tabla_names.getElementosUnicos() << "\n";
+    cout << "Suma de contadores (por user_id)  : " << tabla_ids.getSumaContadores() << "\n";
+    cout << "Suma de contadores (screen_name)  : " << tabla_names.getSumaContadores() << "\n\n";
 
-    cout << "numero de tweets, tipo de clave, tiempo en ms" << endl;
+    int topCuenta = 0;
+    string topUsuario = tabla_names.getUsuarioMasActivo(topCuenta);
+    cout << "Usuario mas activo: @" << topUsuario << " con " << topCuenta << " tweets\n\n";
 
-    // Printeo de resultados de numero de tweets, la clave y el tiempo de ejecucion
-    while (getline(archivo, linea)) {
-        stringstream ss(linea);
-        getline(ss, user_id, ';');
-        getline(ss, screen_name, ';');
 
-        auto start_id = high_resolution_clock::now();
-        tabla_ids.insertar(user_id);
-        auto end_id = high_resolution_clock::now();
-        tiempo_ids_ms += duration_cast<duration<double, milli>>(end_id - start_id).count();
-
-        auto start_name = high_resolution_clock::now();
-        tabla_names.insertar(screen_name);
-        auto end_name = high_resolution_clock::now();
-        tiempo_names_ms += duration_cast<duration<double, milli>>(end_name - start_name).count();
-
-        num_tweets_procesados++;
-
-        if (num_tweets_procesados % 10000 == 0) {
-            cout << num_tweets_procesados << ";user_id;" << tiempo_ids_ms << endl;
-            cout << num_tweets_procesados << ";user_name;" << tiempo_names_ms << endl;
-        }
+    if (readCount == 10000 && numExperimento == 1) {
+        cout << "numero_experimento;dataset;estructura_de_datos;tipo_clave;cantidad_consultas;tiempo_ejecucion_ms\n";
     }
+    cout << numExperimento << ";linear_probing;user_id;" << readCount << ";" << tiempo_ids_ms << "\n";
+    cout << numExperimento << ";linear_probing;user_screen_name;" << readCount << ";" << tiempo_names_ms << "\n";
 
-    archivo.close();
     return 0;
 }

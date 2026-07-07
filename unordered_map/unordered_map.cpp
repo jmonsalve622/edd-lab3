@@ -1,5 +1,5 @@
 // Complición: g++ unordered_map/unordered_map.cpp -o unordered_map/unordered_map
-// Ejecución: ./unordered_map/unordered_map
+// Ejecución: ./unordered_map/unordered_map [read_count]
 
 #include <cstdint>
 #include <fstream>
@@ -16,26 +16,32 @@ struct Tweet {
 
 // Carga el dataset completo en memoria. Se hace antes de cualquier medicion
 // de tiempo para que la lectura de disco no contamine los experimentos.
-std::vector<Tweet> leerDataset(const std::string& ruta) {
+std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
     std::ifstream archivo(ruta);
     if (!archivo) {
         std::cerr << "Error: no se pudo abrir " << ruta << "\n";
         std::exit(1);
     }
     std::vector<Tweet> tweets;
-    tweets.reserve(190000);  // evita realocaciones (sabemos que hay ~183k)
+    tweets.reserve(readCount);
     std::string linea;
-    while (std::getline(archivo, linea)) {
+    int count = 0;
+    while (std::getline(archivo, linea) && count < readCount) {
         size_t sep = linea.find(';');
         tweets.push_back({std::stoull(linea.substr(0, sep)),
                           linea.substr(sep + 1)});
+        count++;
     }
     return tweets;
 }
 
 int main(int argc, char* argv[]) {
-    std::string ruta = (argc > 1) ? argv[1] : "./usuarios.csv";
-    std::vector<Tweet> tweets = leerDataset(ruta);
+    int readCount = (argc > 1) ? std::stoi(argv[1]) : 183361;
+    if (readCount < 1 || readCount > 183361) {
+        std::cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
+        return 1;
+    }
+    std::vector<Tweet> tweets = leerDataset("./usuarios.csv", readCount);
     std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
 
     // --- Conteo usando user_id como clave ---

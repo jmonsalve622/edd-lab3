@@ -9,14 +9,11 @@
 #include <cstdint>
 #include <cmath>
 
-using namespace std;
-using namespace std::chrono;
-
 enum Estado { VACIO, OCUPADO, BORRADO };
 
 struct Tweet {
     uint64_t user_id;
-    string screen_name;
+    std::string screen_name;
 };
 
 struct NodoHashID {
@@ -28,7 +25,7 @@ struct NodoHashID {
 
 class DoubleHashingID {
 private:
-    vector<NodoHashID> tabla;
+    std::vector<NodoHashID> tabla;
     int capacidad;
     int elementos;
     int primo_menor;
@@ -58,7 +55,7 @@ public:
             }
             i++;
             if (i >= capacidad) {
-                cerr << "Error: Tabla llena o ciclo infinito en IDs." << endl;
+                std::cerr << "Error: Tabla llena o ciclo infinito en IDs." << std::endl;
                 return;
             }
         }
@@ -102,7 +99,7 @@ public:
 };
 
 struct NodoHashName {
-    string clave;
+    std::string clave;
     int conteo;
     Estado estado;
     NodoHashName() : clave(""), conteo(0), estado(VACIO) {}
@@ -110,12 +107,12 @@ struct NodoHashName {
 
 class DoubleHashingName {
 private:
-    vector<NodoHashName> tabla;
+    std::vector<NodoHashName> tabla;
     int capacidad;
     int elementos;
     int primo_menor;
 
-    size_t hash1(const string& clave) {
+    size_t hash1(const std::string& clave) {
         size_t hash = 0, p = 31, p_pow = 1;
         for (char c : clave) {
             hash = (hash + (c - 'a' + 1) * p_pow) % capacidad;
@@ -124,7 +121,7 @@ private:
         return hash;
     }
 
-    size_t hash2(const string& clave) {
+    size_t hash2(const std::string& clave) {
         size_t hash = 0, p = 37, p_pow = 1;
         for (char c : clave) {
             hash = (hash + (c - 'a' + 1) * p_pow) % primo_menor;
@@ -141,7 +138,7 @@ public:
         tabla.resize(capacidad);
     }
 
-    void insert(const string& clave) {
+    void insert(const std::string& clave) {
         size_t h1 = hash1(clave);
         size_t h2 = hash2(clave);
         size_t i = 0;
@@ -154,7 +151,7 @@ public:
             }
             i++;
             if (i >= capacidad) {
-                cerr << "Error: Tabla llena o ciclo infinito en Names." << endl;
+                std::cerr << "Error: Tabla llena o ciclo infinito en Names." << std::endl;
                 return;
             }
         }
@@ -174,8 +171,8 @@ public:
         }
         return suma;
     }
-    string getUsuarioMasActivo(int& max_tweets) const {
-        string topUsuario = "";
+    std::string getUsuarioMasActivo(int& max_tweets) const {
+        std::string topUsuario = "";
         max_tweets = 0;
         for (const auto& nodo : tabla) {
             if (nodo.estado == OCUPADO && nodo.conteo > max_tweets) {
@@ -208,19 +205,19 @@ public:
     }
 };
 
-vector<Tweet> leerDataset(const string& ruta, int readCount) {
-    ifstream archivo(ruta);
+std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
+    std::ifstream archivo(ruta);
     if (!archivo) {
-        cerr << "Error: no se pudo abrir " << ruta << "\n";
-        exit(1);
+        std::cerr << "Error: no se pudo abrir " << ruta << "\n";
+        std::exit(1);
     }
-    vector<Tweet> tweets;
+    std::vector<Tweet> tweets;
     tweets.reserve(readCount);
-    string linea;
+    std::string linea;
     int count = 0;
-    while (getline(archivo, linea) && count < readCount) {
+    while (std::getline(archivo, linea) && count < readCount) {
         size_t sep = linea.find(';');
-        tweets.push_back({stoull(linea.substr(0, sep)), linea.substr(sep + 1)});
+        tweets.push_back({std::stoull(linea.substr(0, sep)), linea.substr(sep + 1)});
         count++;
     }
     return tweets;
@@ -247,7 +244,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    vector<Tweet> tweets = leerDataset("usuarios.csv", readCount);
+    std::vector<Tweet> tweets = leerDataset("usuarios.csv", readCount);
     
     int N = 400009; 
     
@@ -291,22 +288,22 @@ int main(int argc, char* argv[]) {
     double meanTimeNames = timeSumNames / numExperiments;
     double stdDeviationNames = standardDeviation(timesNames, meanTimeNames);
 
-// Resultados
+    // Resultados
     std::cout << "-----------------------------------------------\n";
-    std::cout << "Tabla hash con separate chaining (open hashing)\n";
+    std::cout << "Tabla hash con double hashing (closed hashing)\n";
     std::cout << "-----------------------------------------------\n";
     std::cout << "Experimentos realizados: " << numExperiments << "\n";
-    std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
+    std::cout << "Tweets leídos: " << tweets.size() << "\n\n";
 
     std::cout << " --- Tabla hash con user_id como clave ---\n";
-    std::cout << "Usuarios unicos: " << idTable.size() << "\n";
+    std::cout << "Usuarios únicos: " << idTable.size() << "\n";
     std::cout << "Tamaño en memoria: " << idTable.inMemorySize() / 1024 << " KB\n";
-    std::cout << "Tiempo de insercion promedio: " << int(meanTimeIds) << " μs\n";
-    std::cout << "Desviacion estandar: " << int(stdDeviationIds) << " μs\n\n";
+    std::cout << "Tiempo de inserción promedio: " << int(meanTimeIds) << " μs\n";
+    std::cout << "Desviación estandar: " << int(stdDeviationIds) << " μs\n\n";
 
     std::cout << " --- Tabla hash con user_screen_name como clave ---\n";
-    std::cout << "Usuarios unicos: " << screenNameTable.size() << "\n";
+    std::cout << "Usuarios únicos: " << screenNameTable.size() << "\n";
     std::cout << "Tamaño en memoria: " << screenNameTable.inMemorySize() / 1024 << " KB\n";
-    std::cout << "Tiempo de insercion promedio: " << int(meanTimeNames) << " μs\n";
-    std::cout << "Desviacion estandar: " << int(stdDeviationNames)<< " μs\n\n";
+    std::cout << "Tiempo de inserción promedio: " << int(meanTimeNames) << " μs\n";
+    std::cout << "Desviación estandar: " << int(stdDeviationNames)<< " μs\n\n";
 }

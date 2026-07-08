@@ -250,30 +250,19 @@ int main(int argc, char* argv[]) {
     std::cout << "Tabla hash con separate chaining (open hashing)\n";
     std::cout << "-----------------------------------------------\n";
     std::cout << "Experimentos realizados: " << numExperiments << "\n";
-    std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
+    std::cout << "Tweets leídos: " << tweets.size() << "\n\n";
 
     std::cout << " --- Tabla hash con user_id como clave ---\n";
-    std::cout << "Usuarios unicos: " << idTable.size() << "\n";
+    std::cout << "Usuarios únicos: " << idTable.size() << "\n";
     std::cout << "Tamaño en memoria: " << idTable.inMemorySize() / 1024 << " KB\n";
-    std::cout << "Tiempo de insercion promedio: " << int(meanTimeIds) << " μs\n";
-    std::cout << "Desviacion estandar: " << int(stdDeviationIds) << " μs\n\n";
+    std::cout << "Tiempo de inserción promedio: " << int(meanTimeIds) << " μs\n";
+    std::cout << "Desviación estandar: " << int(stdDeviationIds) << " μs\n\n";
 
     std::cout << " --- Tabla hash con user_screen_name como clave ---\n";
-    std::cout << "Usuarios unicos: " << screenNameTable.size() << "\n";
+    std::cout << "Usuarios únicos: " << screenNameTable.size() << "\n";
     std::cout << "Tamaño en memoria: " << screenNameTable.inMemorySize() / 1024 << " KB\n";
-    std::cout << "Tiempo de insercion promedio: " << int(meanTimeNames) << " μs\n";
-    std::cout << "Desviacion estandar: " << int(stdDeviationNames)<< " μs\n\n";
+    std::cout << "Tiempo de inserción promedio: " << int(meanTimeNames) << " μs\n";
+    std::cout << "Desviación estandar: " << int(stdDeviationNames)<< " μs\n\n";
 
-    // --- Usuario con mas tweets, como muestra del resultado ---
-    // std::string topUsuario;
-    // int topCuenta = 0;
-    // for (const auto& [nombre, cuenta] : porScreenName) {
-    //     if (cuenta > topCuenta) {
-    //         topCuenta = cuenta;
-    //         topUsuario = nombre;
-    //     }
-    // }
-    // std::cout << "Usuario mas activo: @" << topUsuario
-    //           << " con " << topCuenta << " tweets\n";
     return 0;
 }

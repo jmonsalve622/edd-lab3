@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 class HashTableById {
     struct Node {
@@ -53,6 +54,22 @@ public:
 
     int size() const {
         return nodes_count;
+    }
+
+    int inMemorySize() const {
+        return sizeof(HashTableById) + sizeof(Node*) * capacity + sizeof(Node) * nodes_count;
+    }
+
+    int getValuesCount() const {
+        int count = 0;
+        for (const auto& bucket : buckets) {
+            Node* current = bucket;
+            while (current) {
+                count += current->value;
+                current = current->next;
+            }
+        }
+        return count;
     }
 };
 
@@ -105,6 +122,22 @@ public:
     int size() const {
         return nodes_count;
     }
+
+    int inMemorySize() const {
+        return sizeof(HashTableById) + sizeof(Node*) * capacity + sizeof(Node) * nodes_count;
+    }
+
+    int getValuesCount() const {
+        int count = 0;
+        for (const auto& bucket : buckets) {
+            Node* current = bucket;
+            while (current) {
+                count += current->value;
+                current = current->next;
+            }
+        }
+        return count;
+    }
 };
 
 // Un tweet reducido a sus dos claves de interes.
@@ -136,36 +169,44 @@ std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
 
 int main(int argc, char* argv[]) {
     int readCount = (argc > 1) ? std::stoi(argv[1]) : 183361;
+
     if (readCount < 1 || readCount > 183361) {
         std::cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
         return 1;
     }
+
     std::vector<Tweet> tweets = leerDataset("./usuarios.csv", readCount);
-    std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
 
-    // --- Conteo usando user_id como clave ---
-    // Esquema del enunciado: if (k esta en H) H[k]++; else H[k] = 1;
-    HashTableById porId(int(tweets.size() * 0.8));
-    for (const Tweet& t : tweets) {
-        porId.insert(t.user_id);
-    }
-
-    // --- Conteo usando user_screen_name como clave ---
-    HashTableByScreenName porScreenName(int(tweets.size() * 0.8));
-    for (const Tweet& t : tweets) {
-        porScreenName.insert(t.screen_name);
-    }
     
-    // --- Validacion: ambas tablas deben coincidir ---
-    // long long totalId = 0, totalScreen = 0;
-    // for (const auto& [clave, cuenta] : porId) totalId += cuenta;
-    // for (const auto& [clave, cuenta] : porScreenName) totalScreen += cuenta;
 
-    std::cout << "Usuarios unicos (por user_id)     : " << porId.size() << "\n";
-    std::cout << "Usuarios unicos (por screen_name) : " << porScreenName.size() << "\n";
-    // std::cout << "Suma de contadores (por user_id)  : " << totalId << "\n";
-    // std::cout << "Suma de contadores (screen_name)  : " << totalScreen << "\n\n";
+    // Tabla hash con user_id como clave
+    HashTableById idTable(int(tweets.size() * 0.8));
+    auto start_id = std::chrono::high_resolution_clock::now();
+    for (const Tweet& t : tweets) {
+        idTable.insert(t.user_id);
+    }
+    auto end_id = std::chrono::high_resolution_clock::now();
+    double tiempo_ids_ms = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end_id - start_id).count();
 
+    // Tabla hash con screen_name como clave
+    HashTableByScreenName screenNameTable(int(tweets.size() * 0.8));
+    auto start_name = std::chrono::high_resolution_clock::now();
+    for (const Tweet& t : tweets) {
+        screenNameTable.insert(t.screen_name);
+    }
+    auto end_name = std::chrono::high_resolution_clock::now();
+    double tiempo_names_ms = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end_name - start_name).count();
+    
+    // Resultados
+    std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
+    std::cout << "Usuarios unicos (por user_id)     : " << idTable.size() << "\n";
+    std::cout << "Usuarios unicos (por screen_name) : " << screenNameTable.size() << "\n";
+    std::cout << "Suma de contadores (por user_id)  : " << idTable.getValuesCount() << "\n";
+    std::cout << "Suma de contadores (screen_name)  : " << screenNameTable.getValuesCount() << "\n\n";
+    std::cout << "Tamaño en memoria (por user_id)     : " << idTable.inMemorySize() / 1024 << " KB\n";
+    std::cout << "Tamaño en memoria (por screen_name) : " << screenNameTable.inMemorySize() / 1024 << " KB\n\n";
+    std::cout << "Tiempo de insercion (por user_id)     : " << tiempo_ids_ms << " ms\n";
+    std::cout << "Tiempo de insercion (por screen_name) : " << tiempo_names_ms << " ms\n\n";
 
     // --- Usuario con mas tweets, como muestra del resultado ---
     // std::string topUsuario;

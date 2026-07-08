@@ -7,6 +7,7 @@
 #include <fstream>
 #include <chrono>
 #include <cstdint>
+#include <cmath>
 
 using namespace std;
 using namespace std::chrono;
@@ -44,7 +45,7 @@ public:
         tabla.resize(capacidad);
     }
 
-    void insertar(uint64_t clave) {
+    void insert(uint64_t clave) {
         size_t h1 = hash1(clave);
         size_t h2 = hash2(clave);
         size_t i = 0;
@@ -76,6 +77,27 @@ public:
             if (nodo.estado == OCUPADO) suma += nodo.conteo;
         }
         return suma;
+    }
+
+    int size() const { 
+        return elementos; 
+    }
+
+    int inMemorySize() const {
+        size_t size = sizeof(tabla);
+        for (const auto& nodo : tabla) {
+            size += sizeof(nodo.clave) + sizeof(nodo.conteo) + sizeof(nodo.estado);
+        }
+        return size;
+    }
+
+    void clear() {
+        for (auto& nodo : tabla) {
+            nodo.estado = VACIO;
+            nodo.clave = 0;
+            nodo.conteo = 0;
+        }
+        elementos = 0;
     }
 };
 
@@ -119,7 +141,7 @@ public:
         tabla.resize(capacidad);
     }
 
-    void insertar(const string& clave) {
+    void insert(const string& clave) {
         size_t h1 = hash1(clave);
         size_t h2 = hash2(clave);
         size_t i = 0;
@@ -163,6 +185,27 @@ public:
         }
         return topUsuario;
     }
+
+    int size() const { 
+        return elementos; 
+    }
+
+    int inMemorySize() const {
+        size_t size = sizeof(tabla);
+        for (const auto& nodo : tabla) {
+            size += sizeof(nodo.clave) + nodo.clave.capacity() + sizeof(nodo.conteo) + sizeof(nodo.estado);
+        }
+        return size;
+    }
+
+    void clear() {
+        for (auto& nodo : tabla) {
+            nodo.estado = VACIO;
+            nodo.clave = "";
+            nodo.conteo = 0;
+        }
+        elementos = 0;
+    }
 };
 
 vector<Tweet> leerDataset(const string& ruta, int readCount) {
@@ -183,12 +226,24 @@ vector<Tweet> leerDataset(const string& ruta, int readCount) {
     return tweets;
 }
 
+double standardDeviation(const std::vector<double>& data, double mean) {
+    double sum = 0.0;
+    for (double value : data) {
+        sum += (value - mean) * (value - mean);
+    }
+    return std::sqrt(sum / data.size());
+}
+    
 int main(int argc, char* argv[]) {
-    int readCount = (argc > 1) ? stoi(argv[1]) : 183361;
-    int numExperimento = (argc > 2) ? stoi(argv[2]) : 1;
+    int numExperiments = (argc > 1) ? std::stoi(argv[1]) : 1;
+    int readCount = (argc > 2) ? std::stoi(argv[2]) : 183361;
 
     if (readCount < 1 || readCount > 183361) {
-        cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
+        std::cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
+        return 1;
+    }
+    if (numExperiments < 1) {
+        std::cerr << "Error: numExperiments debe ser un valor mayor o igual a 1\n";
         return 1;
     }
 
@@ -196,33 +251,62 @@ int main(int argc, char* argv[]) {
     
     int N = 400009; 
     
-    DoubleHashingID tabla_ids(N);
-    auto start_id = high_resolution_clock::now();
-    for (const Tweet& t : tweets) tabla_ids.insertar(t.user_id);
-    auto end_id = high_resolution_clock::now();
-    double tiempo_ids_ms = duration_cast<duration<double, milli>>(end_id - start_id).count();
-
-    DoubleHashingName tabla_names(N);
-    auto start_name = high_resolution_clock::now();
-    for (const Tweet& t : tweets) tabla_names.insertar(t.screen_name);
-    auto end_name = high_resolution_clock::now();
-    double tiempo_names_ms = duration_cast<duration<double, milli>>(end_name - start_name).count();
-
-
-    cout << "Tweets leidos: " << tweets.size() << "\n\n";
-    cout << "Usuarios unicos (por user_id)     : " << tabla_ids.getElementosUnicos() << "\n";
-    cout << "Usuarios unicos (por screen_name) : " << tabla_names.getElementosUnicos() << "\n";
-    cout << "Suma de contadores (por user_id)  : " << tabla_ids.getSumaContadores() << "\n";
-    cout << "Suma de contadores (screen_name)  : " << tabla_names.getSumaContadores() << "\n\n";
-    int topCuenta = 0;
-    string topUsuario = tabla_names.getUsuarioMasActivo(topCuenta);
-    cout << "Usuario mas activo: @" << topUsuario << " con " << topCuenta << " tweets\n\n";
-
-    if (readCount == 10000 && numExperimento == 1) {
-        cout << "numero_experimento;dataset;estructura_de_datos;tipo_clave;cantidad_consultas;tiempo_ejecucion_ms\n";
+    // Tabla hash con user_id como clave
+    DoubleHashingID idTable(N);
+    double timeSumIds = 0;
+    std::vector<double> timesIds;
+    for (int i = 0; i < numExperiments; i++) {
+        auto start_id = std::chrono::high_resolution_clock::now();
+        for (const Tweet& t : tweets) {
+            idTable.insert(t.user_id);
+        }
+        auto end_id = std::chrono::high_resolution_clock::now();
+        double tiempo_ids = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_id - start_id).count();
+        timeSumIds += tiempo_ids;
+        timesIds.push_back(tiempo_ids);
+        if (i < numExperiments - 1) {
+            idTable.clear(); // Limpiar la tabla para el siguiente experimento
+        }
     }
-    cout << numExperimento << ";double_hashing;user_id;" << readCount << ";" << tiempo_ids_ms << "\n";
-    cout << numExperimento << ";double_hashing;user_screen_name;" << readCount << ";" << tiempo_names_ms << "\n";
+    double meanTimeIds = timeSumIds / numExperiments;
+    double stdDeviationIds = standardDeviation(timesIds, meanTimeIds);
 
-    return 0;
+    // Tabla hash con user_screen_name como clave
+    DoubleHashingName screenNameTable(N);
+        double timeSumNames = 0;
+    std::vector<double> timesNames;
+    for (int i = 0; i < numExperiments; i++) {
+        auto start_name = std::chrono::high_resolution_clock::now();
+        for (const Tweet& t : tweets) {
+            screenNameTable.insert(t.screen_name);
+        }
+        auto end_name = std::chrono::high_resolution_clock::now();
+        double tiempo_names = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_name - start_name).count();
+        timeSumNames += tiempo_names;
+        timesNames.push_back(tiempo_names);
+        if (i < numExperiments - 1) {
+            screenNameTable.clear(); // Limpiar la tabla para el siguiente experimento
+        }
+    }
+    double meanTimeNames = timeSumNames / numExperiments;
+    double stdDeviationNames = standardDeviation(timesNames, meanTimeNames);
+
+// Resultados
+    std::cout << "-----------------------------------------------\n";
+    std::cout << "Tabla hash con separate chaining (open hashing)\n";
+    std::cout << "-----------------------------------------------\n";
+    std::cout << "Experimentos realizados: " << numExperiments << "\n";
+    std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
+
+    std::cout << " --- Tabla hash con user_id como clave ---\n";
+    std::cout << "Usuarios unicos: " << idTable.size() << "\n";
+    std::cout << "Tamaño en memoria: " << idTable.inMemorySize() / 1024 << " KB\n";
+    std::cout << "Tiempo de insercion promedio: " << int(meanTimeIds) << " μs\n";
+    std::cout << "Desviacion estandar: " << int(stdDeviationIds) << " μs\n\n";
+
+    std::cout << " --- Tabla hash con user_screen_name como clave ---\n";
+    std::cout << "Usuarios unicos: " << screenNameTable.size() << "\n";
+    std::cout << "Tamaño en memoria: " << screenNameTable.inMemorySize() / 1024 << " KB\n";
+    std::cout << "Tiempo de insercion promedio: " << int(meanTimeNames) << " μs\n";
+    std::cout << "Desviacion estandar: " << int(stdDeviationNames)<< " μs\n\n";
 }

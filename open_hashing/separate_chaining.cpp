@@ -141,18 +141,6 @@ public:
         return sizeof(HashTableById) + sizeof(Node*) * capacity + sizeof(Node) * nodes_count;
     }
 
-    int getValuesCount() const {
-        int count = 0;
-        for (const auto& bucket : buckets) {
-            Node* current = bucket;
-            while (current) {
-                count += current->value;
-                current = current->next;
-            }
-        }
-        return count;
-    }
-
     void clear() {
         for (auto& bucket : buckets) {
             Node* current = bucket;
@@ -210,7 +198,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
         return 1;
     }
-    else if (numExperiments < 1) {
+    if (numExperiments < 1) {
         std::cerr << "Error: numExperiments debe ser un valor mayor o igual a 1\n";
         return 1;
     }
@@ -227,9 +215,9 @@ int main(int argc, char* argv[]) {
             idTable.insert(t.user_id);
         }
         auto end_id = std::chrono::high_resolution_clock::now();
-        double tiempo_ids_ms = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_id - start_id).count();
-        timeSumIds += tiempo_ids_ms;
-        timesIds.push_back(tiempo_ids_ms);
+        double tiempo_ids = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_id - start_id).count();
+        timeSumIds += tiempo_ids;
+        timesIds.push_back(tiempo_ids);
         if (i < numExperiments - 1) {
             idTable.clear(); // Limpiar la tabla para el siguiente experimento
         }
@@ -247,9 +235,9 @@ int main(int argc, char* argv[]) {
             screenNameTable.insert(t.screen_name);
         }
         auto end_name = std::chrono::high_resolution_clock::now();
-        double tiempo_names_ms = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_name - start_name).count();
-        timeSumNames += tiempo_names_ms;
-        timesNames.push_back(tiempo_names_ms);
+        double tiempo_names = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_name - start_name).count();
+        timeSumNames += tiempo_names;
+        timesNames.push_back(tiempo_names);
         if (i < numExperiments - 1) {
             screenNameTable.clear(); // Limpiar la tabla para el siguiente experimento
         }
@@ -266,14 +254,12 @@ int main(int argc, char* argv[]) {
 
     std::cout << " --- Tabla hash con user_id como clave ---\n";
     std::cout << "Usuarios unicos: " << idTable.size() << "\n";
-    std::cout << "Suma de contadores: " << idTable.getValuesCount() << "\n";
     std::cout << "Tamaño en memoria: " << idTable.inMemorySize() / 1024 << " KB\n";
     std::cout << "Tiempo de insercion promedio: " << int(meanTimeIds) << " μs\n";
     std::cout << "Desviacion estandar: " << int(stdDeviationIds) << " μs\n\n";
 
     std::cout << " --- Tabla hash con user_screen_name como clave ---\n";
     std::cout << "Usuarios unicos: " << screenNameTable.size() << "\n";
-    std::cout << "Suma de contadores: " << screenNameTable.getValuesCount() << "\n";
     std::cout << "Tamaño en memoria: " << screenNameTable.inMemorySize() / 1024 << " KB\n";
     std::cout << "Tiempo de insercion promedio: " << int(meanTimeNames) << " μs\n";
     std::cout << "Desviacion estandar: " << int(stdDeviationNames)<< " μs\n\n";

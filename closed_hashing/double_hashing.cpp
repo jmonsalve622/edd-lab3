@@ -1,5 +1,5 @@
 // Compilación: g++ closed_hashing/double_hashing.cpp -o closed_hashing/double_hashing
-// Ejecución: ./closed_hashing/double_hashing [read_count] [num_experimento]
+// Ejecución: ./closed_hashing/double_hashing [num_experimento] [read_count]
 
 #include <iostream>
 #include <vector>
@@ -306,4 +306,13 @@ int main(int argc, char* argv[]) {
     std::cout << "Tamaño en memoria: " << screenNameTable.inMemorySize() / 1024 << " KB\n";
     std::cout << "Tiempo de inserción promedio: " << int(meanTimeNames) << " μs\n";
     std::cout << "Desviación estandar: " << int(stdDeviationNames)<< " μs\n\n";
+
+    // --- LÍNEAS PARA EL SCRIPT DE BASH ---
+    std::cout << readCount << ";double_hashing;user_id;" << numExperiments << ";" 
+              << meanTimeIds << ";" << stdDeviationIds << ";" << idTable.inMemorySize() / 1024 << "\n";
+              
+    std::cout << readCount << ";double_hashing;user_screen_name;" << numExperiments << ";" 
+              << meanTimeNames << ";" << stdDeviationNames << ";" << screenNameTable.inMemorySize() / 1024 << "\n";
+    
+    return 0;
 }

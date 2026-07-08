@@ -289,5 +289,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Tiempo de inserción promedio: " << int(meanTimeNames) << " μs\n";
     std::cout << "Desviación estandar: " << int(stdDeviationNames)<< " μs\n\n";
     
+    // --- LÍNEAS PARA EL SCRIPT DE BASH ---
+    std::cout << readCount << ";linear_probing;user_id;" << numExperiments << ";" 
+              << meanTimeIds << ";" << stdDeviationIds << ";" << idTable.inMemorySize() / 1024 << "\n";
+              
+    std::cout << readCount << ";linear_probing;user_screen_name;" << numExperiments << ";" 
+              << meanTimeNames << ";" << stdDeviationNames << ";" << screenNameTable.inMemorySize() / 1024 << "\n";
+
     return 0;
 }

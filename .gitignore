@@ -72,3 +72,6 @@ closed_hashing/linear_probing
 closed_hashing/quadratic_probing
 open_hashing/separate_chaining
 unordered_map/unordered_map
+
+# VS Code Folder
+.vscode/

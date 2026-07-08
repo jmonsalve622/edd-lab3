@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
     double meanTimeIds = timeSumIds / numExperiments;
     double stdDeviationIds = standardDeviation(timesIds, meanTimeIds);
 
-    // Tabla hash con screen_name como clave
+    // Tabla hash con user_screen_name como clave
     HashTableByScreenName screenNameTable(int(tweets.size() * 0.8));
     double timeSumNames = 0;
     std::vector<double> timesNames;
@@ -258,6 +258,7 @@ int main(int argc, char* argv[]) {
     double stdDeviationNames = standardDeviation(timesNames, meanTimeNames);
     
     // Resultados
+    std::cout << "-----------------------------------------------\n";
     std::cout << "Tabla hash con separate chaining (open hashing)\n";
     std::cout << "-----------------------------------------------\n";
     std::cout << "Experimentos realizados: " << numExperiments << "\n";

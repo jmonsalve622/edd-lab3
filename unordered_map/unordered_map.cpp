@@ -1,5 +1,5 @@
 // Complición: g++ unordered_map/unordered_map.cpp -o unordered_map/unordered_map
-// Ejecución: ./unordered_map/unordered_map [read_count]
+// Ejecución: ./unordered_map/unordered_map [num_experiments] [read_count]
 
 #include <cstdint>
 #include <fstream>
@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cmath>
+#include <chrono>
 
 // Un tweet reducido a sus dos claves de interes.
 struct Tweet {
@@ -35,58 +37,142 @@ std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
     return tweets;
 }
 
+double standardDeviation(const std::vector<double>& data, double mean) {
+    double sum = 0.0;
+    for (double value : data) {
+        sum += (value - mean) * (value - mean);
+    }
+    return std::sqrt(sum / data.size());
+}
+
+int getValuesCount(const std::unordered_map<uint64_t, int>& table) {
+    int count = 0;
+    for (const auto& pair : table) {
+        count += pair.second;
+    }
+    return count;
+}
+
+int getValuesCount(const std::unordered_map<std::string, int>& table) {
+    int count = 0;
+    for (const auto& pair : table) {
+        count += pair.second;
+    }
+    return count;
+}
+
+int inMemorySize(const std::unordered_map<uint64_t, int>& table) {
+    size_t size = sizeof(table);
+    for (const auto& pair : table) {
+        size += sizeof(pair.first) + sizeof(pair.second);
+    }
+    return size;
+}
+
+int inMemorySize(const std::unordered_map<std::string, int>& table) {
+    size_t size = sizeof(table);
+    for (const auto& pair : table) {
+        size += sizeof(pair.first) + pair.first.capacity() + sizeof(pair.second);
+    }
+    return size;
+}
+
 int main(int argc, char* argv[]) {
-    int readCount = (argc > 1) ? std::stoi(argv[1]) : 183361;
+    int numExperiments = (argc > 1) ? std::stoi(argv[1]) : 1;
+    int readCount = (argc > 2) ? std::stoi(argv[2]) : 183361;
+
     if (readCount < 1 || readCount > 183361) {
         std::cerr << "Error: readCount debe ser un valor entre 1 y 183361\n";
         return 1;
     }
+    else if (numExperiments < 1) {
+        std::cerr << "Error: numExperiments debe ser un valor mayor o igual a 1\n";
+        return 1;
+    }
+
     std::vector<Tweet> tweets = leerDataset("./usuarios.csv", readCount);
+
+    // Tabla hash con user_id como clave
+    std::unordered_map<uint64_t, int> idTable;
+    double timeSumIds = 0;
+    std::vector<double> timesIds;
+    for (int i = 0; i < numExperiments; i++) {
+        auto start_id = std::chrono::high_resolution_clock::now();
+        for (const Tweet& t : tweets) {
+            auto it = idTable.find(t.user_id);
+            if (it != idTable.end()) {
+                it->second = it->second + 1;
+            } else {
+                idTable[t.user_id] = 1;
+            }
+        }
+        auto end_id = std::chrono::high_resolution_clock::now();
+        double tiempo_ids_ms = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_id - start_id).count();
+        timeSumIds += tiempo_ids_ms;
+        timesIds.push_back(tiempo_ids_ms);
+        if (i < numExperiments - 1) {
+            idTable.clear(); // Limpiar la tabla para el siguiente experimento
+        }
+    }
+    double meanTimeIds = timeSumIds / numExperiments;
+    double stdDeviationIds = standardDeviation(timesIds, meanTimeIds);
+
+    // Tabla hash con user_screen_name como clave
+    std::unordered_map<std::string, int> screenNameTable;
+    double timeSumNames = 0;
+    std::vector<double> timesNames;
+    for (int i = 0; i < numExperiments; i++) {
+        auto start_name = std::chrono::high_resolution_clock::now();
+        for (const Tweet& t : tweets) {
+            auto it = screenNameTable.find(t.screen_name);
+            if (it != screenNameTable.end()) {
+                it->second = it->second + 1;
+            } else {
+                screenNameTable[t.screen_name] = 1;
+            }
+        }
+        auto end_name = std::chrono::high_resolution_clock::now();
+        double tiempo_names_ms = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_name - start_name).count();
+        timeSumNames += tiempo_names_ms;
+        timesNames.push_back(tiempo_names_ms);
+        if (i < numExperiments - 1) {
+            screenNameTable.clear(); // Limpiar la tabla para el siguiente experimento
+        }
+    }
+    double meanTimeNames = timeSumNames / numExperiments;
+    double stdDeviationNames = standardDeviation(timesNames, meanTimeNames);
+
+    // Resultados
+    std::cout << "-----------------------------------------------\n";
+    std::cout << "Tabla hash con unordered_map\n";
+    std::cout << "-----------------------------------------------\n";
+    std::cout << "Experimentos realizados: " << numExperiments << "\n";
     std::cout << "Tweets leidos: " << tweets.size() << "\n\n";
 
-    // --- Conteo usando user_id como clave ---
-    // Esquema del enunciado: if (k esta en H) H[k]++; else H[k] = 1;
-    std::unordered_map<uint64_t, int> porId;
-    for (const Tweet& t : tweets) {
-        auto it = porId.find(t.user_id);
-        if (it != porId.end()) {
-            it->second = it->second + 1;
-        } else {
-            porId[t.user_id] = 1;
-        }
-    }
+    std::cout << " --- Tabla hash con user_id como clave ---\n";
+    std::cout << "Usuarios unicos: " << idTable.size() << "\n";
+    std::cout << "Suma de contadores: " << getValuesCount(idTable) << "\n";
+    std::cout << "Tamaño en memoria: " << inMemorySize(idTable) / 1024 << " KB\n";
+    std::cout << "Tiempo de insercion promedio: " << int(meanTimeIds) << " μs\n";
+    std::cout << "Desviacion estandar: " << int(stdDeviationIds) << " μs\n\n";
 
-    // --- Conteo usando user_screen_name como clave ---
-    std::unordered_map<std::string, int> porScreenName;
-    for (const Tweet& t : tweets) {
-        auto it = porScreenName.find(t.screen_name);
-        if (it != porScreenName.end()) {
-            it->second = it->second + 1;
-        } else {
-            porScreenName[t.screen_name] = 1;
-        }
-    }
-
-    // --- Validacion: ambas tablas deben coincidir ---
-    long long totalId = 0, totalScreen = 0;
-    for (const auto& [clave, cuenta] : porId) totalId += cuenta;
-    for (const auto& [clave, cuenta] : porScreenName) totalScreen += cuenta;
-
-    std::cout << "Usuarios unicos (por user_id)     : " << porId.size() << "\n";
-    std::cout << "Usuarios unicos (por screen_name) : " << porScreenName.size() << "\n";
-    std::cout << "Suma de contadores (por user_id)  : " << totalId << "\n";
-    std::cout << "Suma de contadores (screen_name)  : " << totalScreen << "\n\n";
+    std::cout << " --- Tabla hash con user_screen_name como clave ---\n";
+    std::cout << "Usuarios unicos: " << screenNameTable.size() << "\n";
+    std::cout << "Suma de contadores: " << getValuesCount(screenNameTable) << "\n";
+    std::cout << "Tamaño en memoria: " << inMemorySize(screenNameTable) / 1024 << " KB\n";
+    std::cout << "Tiempo de insercion promedio: " << int(meanTimeNames) << " μs\n";
+    std::cout << "Desviacion estandar: " << int(stdDeviationNames)<< " μs\n\n";
 
     // --- Usuario con mas tweets, como muestra del resultado ---
-    std::string topUsuario;
-    int topCuenta = 0;
-    for (const auto& [nombre, cuenta] : porScreenName) {
-        if (cuenta > topCuenta) {
-            topCuenta = cuenta;
-            topUsuario = nombre;
-        }
-    }
-    std::cout << "Usuario mas activo: @" << topUsuario
-              << " con " << topCuenta << " tweets\n";
+    // std::string topUsuario;
+    // int topCuenta = 0;
+    // for (const auto& [nombre, cuenta] : porScreenName) {
+    //     if (cuenta > topCuenta) {
+    //         topCuenta = cuenta;
+    //         topUsuario = nombre;
+    //    }
+    // }
+    // std::cout << "Usuario mas activo: @" << topUsuario
+    //           << " con " << topCuenta << " tweets\n";
     return 0;
 }

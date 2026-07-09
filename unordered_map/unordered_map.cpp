@@ -1,3 +1,8 @@
+// Conteo de tweets por usuario utilizando std::unordered_map, la tabla hash
+// de la biblioteca estandar de C++. Sirve como implementacion de referencia:
+// administra automaticamente sus buckets y realiza rehashing dinamico cuando
+// el factor de carga supera el umbral interno.
+//
 // Complición: g++ unordered_map/unordered_map.cpp -o unordered_map/unordered_map
 // Ejecución: ./unordered_map/unordered_map [num_experiments] [read_count]
 
@@ -18,6 +23,7 @@ struct Tweet {
 
 // Carga el dataset completo en memoria. Se hace antes de cualquier medicion
 // de tiempo para que la lectura de disco no contamine los experimentos.
+// Cada linea de usuarios.csv tiene el formato "user_id;screen_name".
 std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
     std::ifstream archivo(ruta);
     if (!archivo) {
@@ -37,6 +43,7 @@ std::vector<Tweet> leerDataset(const std::string& ruta, int readCount) {
     return tweets;
 }
 
+// Desviacion estandar poblacional de las mediciones de tiempo.
 double standardDeviation(const std::vector<double>& data, double mean) {
     double sum = 0.0;
     for (double value : data) {
@@ -45,6 +52,9 @@ double standardDeviation(const std::vector<double>& data, double mean) {
     return std::sqrt(sum / data.size());
 }
 
+// Estimacion del tamano en memoria para la tabla con clave numerica: suma
+// solo claves y valores almacenados. No contabiliza los buckets, nodos ni
+// punteros internos de la STL, por lo que subestima el consumo real.
 int inMemorySize(const std::unordered_map<uint64_t, int>& table) {
     size_t size = sizeof(table);
     for (const auto& pair : table) {
@@ -53,6 +63,8 @@ int inMemorySize(const std::unordered_map<uint64_t, int>& table) {
     return size;
 }
 
+// Estimacion analoga para la tabla con clave string; en este caso si se
+// incluye la capacidad interna reservada por cada std::string.
 int inMemorySize(const std::unordered_map<std::string, int>& table) {
     size_t size = sizeof(table);
     for (const auto& pair : table) {
@@ -62,6 +74,8 @@ int inMemorySize(const std::unordered_map<std::string, int>& table) {
 }
 
 int main(int argc, char* argv[]) {
+    // Argumentos: cantidad de repeticiones del experimento y cantidad de
+    // tweets a procesar (por defecto el dataset completo).
     int numExperiments = (argc > 1) ? std::stoi(argv[1]) : 1;
     int readCount = (argc > 2) ? std::stoi(argv[2]) : 183361;
 
@@ -76,13 +90,18 @@ int main(int argc, char* argv[]) {
 
     std::vector<Tweet> tweets = leerDataset("./usuarios.csv", readCount);
 
-    // Tabla hash con user_id como clave
+    // ------- Experimento 1: tabla hash con user_id como clave -------
+    // No se reserva capacidad inicial: la tabla crece mediante rehashing
+    // a medida que se insertan elementos. Se repite la insercion de todos
+    // los tweets numExperiments veces, midiendo solo el bucle de insercion.
     std::unordered_map<uint64_t, int> idTable;
     double timeSumIds = 0;
     std::vector<double> timesIds;
     for (int i = 0; i < numExperiments; i++) {
         auto start_id = std::chrono::high_resolution_clock::now();
         for (const Tweet& t : tweets) {
+            // Si la clave existe se incrementa su contador; si no, se
+            // inserta con valor 1 (equivalente al insert de las otras tablas).
             auto it = idTable.find(t.user_id);
             if (it != idTable.end()) {
                 it->second = it->second + 1;
@@ -91,6 +110,7 @@ int main(int argc, char* argv[]) {
             }
         }
         auto end_id = std::chrono::high_resolution_clock::now();
+        // Duracion de esta repeticion en microsegundos.
         double tiempo_ids = std::chrono::duration_cast<std::chrono::duration<double, std::micro>>(end_id - start_id).count();
         timeSumIds += tiempo_ids;
         timesIds.push_back(tiempo_ids);
@@ -101,7 +121,7 @@ int main(int argc, char* argv[]) {
     double meanTimeIds = timeSumIds / numExperiments;
     double stdDeviationIds = standardDeviation(timesIds, meanTimeIds);
 
-    // Tabla hash con user_screen_name como clave
+    // ------- Experimento 2: tabla hash con user_screen_name como clave -------
     std::unordered_map<std::string, int> screenNameTable;
     double timeSumNames = 0;
     std::vector<double> timesNames;
@@ -126,7 +146,7 @@ int main(int argc, char* argv[]) {
     double meanTimeNames = timeSumNames / numExperiments;
     double stdDeviationNames = standardDeviation(timesNames, meanTimeNames);
 
-    // Resultados
+    // ------- Resultados legibles por consola -------
     std::cout << "-----------------------------------------------\n";
     std::cout << "Tabla hash con unordered_map\n";
     std::cout << "-----------------------------------------------\n";
@@ -146,10 +166,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Desviación estandar: " << int(stdDeviationNames)<< " μs\n\n";
 
     // --- LÍNEAS PARA EL SCRIPT DE BASH ---
-    std::cout << readCount << ";unordered_map;user_id;" << numExperiments << ";" 
+    // Formato CSV: n;estructura;clave;repeticiones;tiempo_prom;desv_est;memoria_kb
+    // ejecutar_experimentos.sh filtra estas lineas (grep ";") hacia resultados.csv
+    std::cout << readCount << ";unordered_map;user_id;" << numExperiments << ";"
               << meanTimeIds << ";" << stdDeviationIds << ";" << inMemorySize(idTable) / 1024 << "\n";
-              
-    std::cout << readCount << ";unordered_map;user_screen_name;" << numExperiments << ";" 
+
+    std::cout << readCount << ";unordered_map;user_screen_name;" << numExperiments << ";"
               << meanTimeNames << ";" << stdDeviationNames << ";" << inMemorySize(screenNameTable) / 1024 << "\n";
 
     return 0;
